@@ -364,7 +364,28 @@ function exportExcel(){
   downloadExcelBlob(blob,name);
  }catch(e){console.error(e);alert('No se pudo crear el reporte Excel: '+e.message)}
 }
-function exportJSON(){if(!teacher)return;download('milo_copia_seguridad.json',JSON.stringify(db,null,2),'application/json')}
+function exportJSON(){
+ if(!teacher)return;
+ try{
+  const name='milo_copia_seguridad.json';
+  const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
+  // Compartir el archivo desde el gesto del usuario en Safari/iOS.
+  if(navigator.share&&navigator.canShare&&typeof File!=='undefined'){
+   const file=new File([blob],name,{type:'application/json'});
+   if(navigator.canShare({files:[file]})){
+    navigator.share({files:[file],title:'Copia de seguridad de Estafetas de Milo'})
+     .catch(err=>{
+      if(err?.name!=='AbortError'){
+       console.warn('No se pudo compartir la copia:',err);
+       downloadExcelBlob(blob,name);
+      }
+     });
+    return;
+   }
+  }
+  downloadExcelBlob(blob,name);
+ }catch(e){console.error(e);alert('No se pudo preparar la copia de seguridad: '+e.message)}
+}
 function importJSON(ev){if(!teacher)return;let f=ev.target.files?.[0];if(!f)return;f.text().then(t=>{let data=JSON.parse(t);if(!Array.isArray(data.students)||!Array.isArray(data.records)||!Array.isArray(data.teachers))throw Error('Formato inválido');if(!confirm('Esto reemplazará los datos locales actuales. ¿Continuar?'))return;db=data;teacher=null;save();render()}).catch(e=>alert('No se pudo restaurar: '+e.message));ev.target.value=''}
 render();
 </script><script>
