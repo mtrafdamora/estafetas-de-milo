@@ -333,7 +333,29 @@ function buildExcelSheets(teacherId){const ss=db.students.filter(s=>s.teacherId=
 {name:'Niveles de logro',rows:[[...head,'Nivel 1','Nivel 2','Nivel 3','Nivel 4','Nivel 5','Total','Nivel promedio'],...ss.map(s=>{const a=perStudent(s);return[s.code||'',s.name,...[1,2,3,4,5].map(n=>a.filter(r=>Number(r.level)===n).length),a.length,avg(a)]})]},
 {name:'Historial completo',rows:[['Clave','Estudiante','Estafeta','Fecha y hora (UTC)','Nivel','ID de registro'],...rs.map(r=>{const s=ss.find(x=>x.id===r.studentId);return[s?.code||'',s?.name||'',r.estafeta,r.time||'',Number(r.level)||'',r.id||'']})]}
 ]}
-function exportExcel(){if(!teacher)return;try{const sheets=buildExcelSheets(teacher),blob=xlsxBlob(sheets),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='Estafetas_de_Milo_reporte_grupo.xlsx';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}catch(e){console.error(e);alert('No se pudo crear el reporte Excel: '+e.message)}}
+function downloadExcelBlob(blob,name){
+ const url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download=name;a.style.display='none';document.body.appendChild(a);
+ a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(url)},60000);
+}
+function exportExcel(){
+ if(!teacher)return;
+ try{
+  const blob=xlsxBlob(buildExcelSheets(teacher));
+  const name='Estafetas_de_Milo_reporte_grupo.xlsx';
+  // iOS Safari: use the native share sheet to offer "Save to Files".
+  // Keep this call in the original tap handler to preserve user activation.
+  if(navigator.share&&navigator.canShare&&typeof File!=='undefined'){
+   const file=new File([blob],name,{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+   if(navigator.canShare({files:[file]})){
+    navigator.share({files:[file],title:'Reporte de Estafetas de Milo'})
+     .catch(err=>{if(err?.name!=='AbortError'){console.warn('No se pudo compartir el reporte:',err);downloadExcelBlob(blob,name)}});
+    return;
+   }
+  }
+  downloadExcelBlob(blob,name);
+ }catch(e){console.error(e);alert('No se pudo crear el reporte Excel: '+e.message)}
+}
 function exportJSON(){if(!teacher)return;download('milo_copia_seguridad.json',JSON.stringify(db,null,2),'application/json')}
 function importJSON(ev){if(!teacher)return;let f=ev.target.files?.[0];if(!f)return;f.text().then(t=>{let data=JSON.parse(t);if(!Array.isArray(data.students)||!Array.isArray(data.records)||!Array.isArray(data.teachers))throw Error('Formato inválido');if(!confirm('Esto reemplazará los datos locales actuales. ¿Continuar?'))return;db=data;teacher=null;save();render()}).catch(e=>alert('No se pudo restaurar: '+e.message));ev.target.value=''}
 render();
